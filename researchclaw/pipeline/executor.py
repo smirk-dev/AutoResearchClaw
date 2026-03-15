@@ -14,6 +14,7 @@ import yaml
 from researchclaw.adapters import AdapterBundle
 from researchclaw.config import RCConfig
 from researchclaw.hardware import HardwareProfile, detect_hardware, ensure_torch_available, is_metric_name
+from researchclaw.llm import create_llm_client
 from researchclaw.llm.client import LLMClient
 from researchclaw.prompts import PromptManager
 from researchclaw.pipeline.stages import (
@@ -5980,9 +5981,12 @@ def execute_stage(
 
     llm = None
     try:
-        candidate = LLMClient.from_rc_config(config)
-        if candidate.config.base_url and candidate.config.api_key:
-            llm = candidate
+        if config.llm.provider == "acp":
+            llm = create_llm_client(config)
+        else:
+            candidate = LLMClient.from_rc_config(config)
+            if candidate.config.base_url and candidate.config.api_key:
+                llm = candidate
     except Exception:  # noqa: BLE001
         llm = None
 

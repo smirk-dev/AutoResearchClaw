@@ -182,6 +182,33 @@ openclaw_bridge:
 
 Each flag activates a typed adapter protocol. When OpenClaw provides these capabilities, the adapters consume them without code changes. See [`docs/integration-guide.md`](docs/integration-guide.md) for full details.
 
+### ACP (Agent Client Protocol)
+
+AutoResearchClaw can use **any ACP-compatible coding agent** as its LLM backend — no API keys required. The agent communicates via [acpx](https://github.com/openclaw/acpx), maintaining a single persistent session across all 23 pipeline stages.
+
+| Agent | Command | Notes |
+|-------|---------|-------|
+| Claude Code | `claude` | Anthropic |
+| Codex CLI | `codex` | OpenAI |
+| Gemini CLI | `gemini` | Google |
+| OpenCode | `opencode` | SST |
+| Kimi CLI | `kimi` | Moonshot |
+
+```yaml
+# config.yaml — ACP example
+llm:
+  provider: "acp"
+  acp:
+    agent: "claude"   # Any ACP-compatible agent CLI command
+    cwd: "."          # Working directory for the agent
+  # No base_url or api_key needed — the agent handles its own auth.
+```
+
+```bash
+# Just run — the agent uses its own credentials
+researchclaw run --config config.yaml --topic "Your research idea" --auto-approve
+```
+
 ### 🛠️ Other Ways to Run
 
 | Method | How |
@@ -282,13 +309,16 @@ runtime:
 
 # === LLM ===
 llm:
-  provider: "openai-compatible"    # Provider type
-  base_url: "https://..."          # API endpoint (required)
-  api_key_env: "OPENAI_API_KEY"    # Env var for API key (required)
+  provider: "openai-compatible"    # "openai-compatible" (default) or "acp"
+  base_url: "https://..."          # API endpoint (required for openai-compatible)
+  api_key_env: "OPENAI_API_KEY"    # Env var for API key (required for openai-compatible)
   api_key: ""                      # Or hardcode key here
   primary_model: "gpt-4o"          # Primary model
   fallback_models: ["gpt-4o-mini"] # Fallback chain
   s2_api_key: ""                   # Semantic Scholar API key (optional, higher rate limits)
+  acp:                             # Only used when provider: "acp"
+    agent: "claude"                # ACP agent CLI command (claude, codex, gemini, etc.)
+    cwd: "."                       # Working directory for the agent
 
 # === Experiment ===
 experiment:

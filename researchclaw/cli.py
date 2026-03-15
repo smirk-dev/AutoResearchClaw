@@ -46,9 +46,9 @@ def cmd_run(args: argparse.Namespace) -> int:
 
     # --- LLM Preflight ---
     if not skip_preflight:
-        from researchclaw.llm.client import LLMClient
+        from researchclaw.llm import create_llm_client
 
-        client = LLMClient.from_rc_config(config)
+        client = create_llm_client(config)
         print("Preflight check...", end=" ", flush=True)
         ok, msg = client.preflight()
         if ok:
