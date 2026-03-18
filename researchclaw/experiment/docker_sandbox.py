@@ -401,7 +401,7 @@ class DockerSandbox:
         if cfg.gpu_enabled:
             if cfg.gpu_device_ids:
                 device_spec = ",".join(str(d) for d in cfg.gpu_device_ids)
-                cmd.extend(["--gpus", f'"device={device_spec}"'])
+                cmd.extend(["--gpus", f"device={device_spec}"])
             else:
                 cmd.extend(["--gpus", "all"])
 

@@ -26,6 +26,11 @@ from researchclaw.utils.thinking_tags import strip_thinking_tags
 logger = logging.getLogger(__name__)
 
 
+def _esc(s: str) -> str:
+    """Escape curly braces in user-provided strings for str.format()."""
+    return s.replace("{", "{{").replace("}", "}}")
+
+
 # ---------------------------------------------------------------------------
 # Built-in chart templates
 # ---------------------------------------------------------------------------
@@ -630,9 +635,9 @@ class CodeGenAgent(BaseAgent):
             ci_low=repr(ci_low),
             ci_high=repr(ci_high),
             output_path=output_path,
-            title=title,
-            x_label=x_label,
-            y_label=y_label,
+            title=_esc(title),
+            x_label=_esc(x_label),
+            y_label=_esc(y_label),
             width=width,
             height=height,
         )
@@ -675,9 +680,9 @@ class CodeGenAgent(BaseAgent):
             metric_names=repr(metrics),
             data_matrix=repr(data_matrix),
             output_path=output_path,
-            title=title,
-            x_label=x_label,
-            y_label=y_label,
+            title=_esc(title),
+            x_label=_esc(x_label),
+            y_label=_esc(y_label),
             width=width,
             height=height,
         )
@@ -726,9 +731,9 @@ class CodeGenAgent(BaseAgent):
             col_labels=repr(metric_names),
             data_matrix=repr(data_matrix),
             output_path=output_path,
-            title=title,
-            x_label=x_label or "Metric",
-            y_label=y_label or "Method",
+            title=_esc(title),
+            x_label=_esc(x_label or "Metric"),
+            y_label=_esc(y_label or "Method"),
             width=max(width, len(metric_names) * 0.8),
             height=max(height, len(conditions) * 0.6),
         )

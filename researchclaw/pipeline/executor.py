@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import re
 import time as _time
 from dataclasses import dataclass
@@ -2627,8 +2628,8 @@ def _execute_experiment_design(
     # and code generation. For ML domains, existing behavior is unchanged.
     _domain_profile = None
     try:
-        from researchclaw.domains.detector import detect_domain as _detect_domain
-        _domain_profile = _detect_domain(
+        from researchclaw.domains.detector import detect_domain as _detect_domain_adv
+        _domain_profile = _detect_domain_adv(
             topic=config.research.topic,
             hypotheses=hypotheses,
         )
@@ -3748,8 +3749,8 @@ def _execute_code_generation(
         )
         try:
             review_resp = llm.chat(
+                [{"role": "user", "content": review_prompt}],
                 system="You are a meticulous ML code reviewer. Be strict.",
-                user=review_prompt,
                 max_tokens=2048,
             )
             # Extract JSON from LLM response (may be wrapped in markdown fences)
@@ -3854,8 +3855,8 @@ def _execute_code_generation(
         )
         try:
             align_resp = llm.chat(
+                [{"role": "user", "content": align_prompt}],
                 system="You are a scientific code reviewer checking topic-experiment alignment.",
-                user=align_prompt,
                 max_tokens=1024,
             )
             align_data = _safe_json_loads(align_resp.content, {})
@@ -3910,8 +3911,8 @@ def _execute_code_generation(
                 '{"has_duplicates": true/false, "details": "which conditions are identical"}'
             )
             abl_resp = llm.chat(
+                [{"role": "user", "content": ablation_prompt}],
                 system="You are a code reviewer checking experimental conditions.",
-                user=ablation_prompt,
                 max_tokens=512,
             )
             abl_data = _safe_json_loads(abl_resp.content, {})
@@ -6916,11 +6917,17 @@ def _execute_paper_draft(
                     ci_lo = cdata.get("ci95_low")
                     ci_hi = cdata.get("ci95_high")
                     if ci_lo is not None and ci_hi is not None:
-                        cond_block += f"- Bootstrap 95% CI: [{ci_lo:.4f}, {ci_hi:.4f}]\n"
+                        try:
+                            cond_block += f"- Bootstrap 95% CI: [{float(ci_lo):.4f}, {float(ci_hi):.4f}]\n"
+                        except (ValueError, TypeError):
+                            cond_block += f"- Bootstrap 95% CI: [{ci_lo}, {ci_hi}]\n"
                     cm = cdata.get("metrics", {})
                     if cm:
                         for mk, mv in sorted(cm.items()):
-                            cond_block += f"- {mk}: {mv:.4f}\n"
+                            if isinstance(mv, (int, float)):
+                                cond_block += f"- {mk}: {mv:.4f}\n"
+                            else:
+                                cond_block += f"- {mk}: {mv}\n"
                 exp_metrics_instruction += cond_block
 
             # R18-1: Inject paired statistical comparisons
@@ -8355,7 +8362,7 @@ def _execute_export_publish(
             sentence = final_paper[start:end].strip()
             if sentence:
                 final_paper = final_paper[:start] + final_paper[end:]
-        final_paper = _re_imp3.sub(r"\s{2,}", " ", final_paper)
+        final_paper = re.sub(r"[^\S\n]{2,}", " ", final_paper)
         logger.info(
             "Stage 22: Removed %d duplicate 'computational constraints' "
             "disclaimers",
@@ -8449,7 +8456,7 @@ def _execute_export_publish(
         import re as _re_fab
         _real_vals = set()
         for rv in _fab_flags.get("real_metric_values", []):
-            if isinstance(rv, (int, float)):
+            if isinstance(rv, (int, float)) and math.isfinite(rv):
                 _real_vals.add(str(round(rv, 4)))
                 _real_vals.add(str(round(rv, 2)))
                 _real_vals.add(str(round(rv, 1)))
@@ -8461,6 +8468,8 @@ def _execute_export_publish(
             # Keep the number if it matches any known real metric value
             try:
                 num_val = float(num_str)
+                if not math.isfinite(num_val):
+                    return "--"
                 rounded_strs = {
                     str(round(num_val, 4)),
                     str(round(num_val, 2)),
@@ -8469,7 +8478,7 @@ def _execute_export_publish(
                 }
                 if rounded_strs & _real_vals:
                     return num_str  # real value — keep it
-            except ValueError:
+            except (ValueError, OverflowError):
                 return num_str
             return "--"
 

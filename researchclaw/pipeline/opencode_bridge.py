@@ -311,7 +311,7 @@ class OpenCodeBridge:
         time_budget_sec: int,
     ) -> Path:
         """Create a temporary workspace directory with context files."""
-        ws = stage_dir / f"opencode_beast_{int(time.time())}"
+        ws = stage_dir / f"opencode_beast_{int(time.time())}_{time.monotonic_ns() % 100000}"
         ws.mkdir(parents=True, exist_ok=True)
 
         # Write experiment plan
@@ -346,8 +346,8 @@ class OpenCodeBridge:
     def _is_azure(self) -> bool:
         """Detect Azure OpenAI from base URL or provider string."""
         return (
-            "azure" in self._llm_base_url.lower()
-            or "azure" in self._llm_provider.lower()
+            "azure" in (self._llm_base_url or "").lower()
+            or "azure" in (self._llm_provider or "").lower()
         )
 
     def _build_opencode_config(self) -> dict[str, Any]:
@@ -522,7 +522,10 @@ class OpenCodeBridge:
             # Flatten to basename — executor expects flat structure
             basename = rel.name
             if basename not in files:
-                files[basename] = py_file.read_text(encoding="utf-8", errors="replace")
+                try:
+                    files[basename] = py_file.read_text(encoding="utf-8", errors="replace")
+                except OSError as exc:
+                    logger.warning("Beast mode: failed to read %s: %s", py_file, exc)
 
         # Also collect requirements.txt and setup.py at root
         for extra in ("requirements.txt", "setup.py"):
@@ -560,15 +563,20 @@ class OpenCodeBridge:
 
         for attempt in range(1 + self._max_retries):
             # Prepare workspace
-            workspace = self._prepare_workspace(
-                stage_dir=stage_dir,
-                topic=topic,
-                exp_plan=exp_plan,
-                metric=metric,
-                pkg_hint=pkg_hint,
-                extra_guidance=extra_guidance,
-                time_budget_sec=time_budget_sec,
-            )
+            try:
+                workspace = self._prepare_workspace(
+                    stage_dir=stage_dir,
+                    topic=topic,
+                    exp_plan=exp_plan,
+                    metric=metric,
+                    pkg_hint=pkg_hint,
+                    extra_guidance=extra_guidance,
+                    time_budget_sec=time_budget_sec,
+                )
+            except OSError as exc:
+                last_error = f"Failed to prepare workspace: {exc}"
+                logger.warning("Beast mode: %s", last_error)
+                continue
 
             # Build the mega-prompt
             prompt = _MEGA_PROMPT_TEMPLATE.format(

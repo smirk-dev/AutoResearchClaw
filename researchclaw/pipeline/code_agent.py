@@ -244,12 +244,13 @@ class CodeAgent:
                 topic, exp_plan, metric, pkg_hint, arch_spec, max_tokens,
             )
             # Hard validation gates (E-03) for single-shot too
-            if self._cfg.hard_validation:
+            if self._cfg.hard_validation and files:
                 files = self._hard_validate_and_repair(
                     files, topic, exp_plan, metric, pkg_hint, arch_spec,
                 )
             best = SolutionNode(
-                node_id="single", files=files, runs_ok=True, score=1.0,
+                node_id="single", files=files,
+                runs_ok=bool(files), score=1.0 if files else 0.0,
             )
 
         # Phase 5: Review dialog
@@ -720,11 +721,6 @@ class CodeAgent:
             for node in ast.walk(tree):
                 if isinstance(node, ast.ImportFrom) and node.module:
                     mod_top = node.module.split(".")[0]
-                    if (
-                        mod_top in known_modules
-                        and mod_top not in known_modules
-                    ):
-                        pass  # impossible, skip
                     # Check if importing from a local module that exists
                     if mod_top in known_modules:
                         # Verify imported names exist in target file
@@ -1094,7 +1090,7 @@ class CodeAgent:
         all_nodes: list[SolutionNode] = []
 
         # Generate initial candidates
-        n_cand = self._cfg.tree_search_candidates
+        n_cand = max(self._cfg.tree_search_candidates, 1)
         for k in range(n_cand):
             self._log_event(f"  Generating candidate {k + 1}/{n_cand}")
             files = self._generate_code(
@@ -1355,8 +1351,11 @@ class CodeAgent:
                 return _as_dict(json.loads(m.group(1)))
             except (json.JSONDecodeError, ValueError):
                 pass
-        # First {...} object
-        m = re.search(r"\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}", text, re.DOTALL)
+        # First {...} object (supports up to 2 levels of nesting)
+        m = re.search(
+            r"\{[^{}]*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}[^{}]*)*\}",
+            text, re.DOTALL,
+        )
         if m:
             try:
                 return _as_dict(json.loads(m.group(0)))
