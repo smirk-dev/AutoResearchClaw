@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -54,7 +55,7 @@ def _c(code: str, text: str) -> str:
 
 
 def _hr() -> str:
-    cols = os.get_terminal_size(fallback=(80, 24)).columns
+    cols = shutil.get_terminal_size(fallback=(80, 24)).columns
     return "─" * min(cols, 80)
 
 
